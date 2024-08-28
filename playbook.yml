@@ -1,4 +1,4 @@
 - hosts: servers
   become: true
   roles:
-    - https://github.com/anugrawangchuk/Ansible.git
+    - artifactory
