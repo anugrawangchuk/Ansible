@@ -1,0 +1,50 @@
+---
+- name: Update CentOS OS package list
+  yum:
+    name: "*"
+    state: latest
+
+- name: Add JFrog Artifactory YUM repository
+  yum_repository:
+    name: artifactory
+    description: JFrog Artifactory repository
+    baseurl: "https://releases.jfrog.io/artifactory/artifactory-rpms/"
+    gpgcheck: 1
+    gpgkey: "https://releases.jfrog.io/artifactory/api/gpg/key/public"
+    state: present
+
+- name: Install JFrog Artifactory
+  yum:
+    name: "jfrog-artifactory-oss-{{ artifactory_version }}"
+    state: present
+  register: artifactory_installation
+  notify: Restart Artifactory
+
+- name: Deploy Artifactory configuration file
+  template:
+    src: artifactory_config.j2
+    dest: /etc/artifactory/artifactory_config.yml
+  notify: Restart Artifactory
+
+- name: Start and enable Artifactory service
+  systemd:
+    name: artifactory
+    state: started
+    enabled: yes
+
+- name: Check Artifactory service status
+  command: systemctl status artifactory.service
+  register: artifactory_status
+  failed_when: "'running' not in artifactory_status.stdout"
+  changed_when: false
+
+- name: Check Artifactory logs
+  command: tail -f /var/opt/jfrog/artifactory/log/artifactory-service.log
+  async: 10
+  poll: 0
+
+- name: Check if Artifactory is running on port 8081
+  command: curl -s localhost:8081
+  register: curl_status
+  changed_when: false
+  failed_when: "'404' in curl_status.stdout"
