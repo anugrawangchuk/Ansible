@@ -1,0 +1,30 @@
+---
+- name: Include OS-specific tasks
+  include_tasks: "{{ ansible_os_family | lower }}.yml"
+
+- name: Notify about the Artifactory installation status
+  debug:
+    msg: "JFrog Artifactory installation complete."
+  when: artifactory_installed is defined and artifactory_installed
+
+- name: Check Artifactory service status
+  systemd:
+    name: artifactory
+    state: started
+  register: artifactory_status
+  failed_when: "'active' not in artifactory_status.status.ActiveState"
+  changed_when: false
+
+- name: Check Artifactory service logs
+  command: tail -f /var/opt/jfrog/artifactory/log/artifactory-service.log
+  async: 10
+  poll: 0
+
+- name: Check if Artifactory is running on port 8081
+  uri:
+    url: http://localhost:8081
+    method: GET
+    return_content: yes
+  register: http_response
+  failed_when: "'404' in http_response.content"
+  changed_when: false
